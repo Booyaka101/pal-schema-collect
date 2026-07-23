@@ -1,7 +1,7 @@
 # PROGRESS — pal-schema-collect
 
-**Last updated:** 2026-07-24 (session 3: GitHub publish + npm prep; npm publish & issue post blocked pending owner)
-**Status:** COMPLETE + PUBLISHED to GitHub. Built, tested offline (50/50), verified end-to-end against the LIVE palschema-hub registry twice (PR #2, PR #3), and live at https://github.com/Booyaka101/pal-schema-collect (`npx github:Booyaka101/pal-schema-collect` verified). Registry-side CI gate merged into palschema-hub. Submission PRs self-contained (carry catalog updates).
+**Last updated:** 2026-07-24 (session 3: SHIPPED — GitHub + npm + issue #53 post)
+**Status:** COMPLETE + FULLY DISTRIBUTED. Built, tested offline (50/50), verified end-to-end against the LIVE palschema-hub registry twice (PR #2, PR #3). Live at https://github.com/Booyaka101/pal-schema-collect, on npm as `pal-schema-collect@0.1.0`, and announced in PalSchema issue #53 (comment 5061200106). Registry-side CI gate merged into palschema-hub. Submission PRs self-contained (carry catalog updates).
 
 ## What this is
 `palsc` — CLI that validates PalSchema Schema Generator output (`DT_*.schema.json`) and submits it to Booyaka101/palschema-hub as an automated GitHub PR. Companion to D:\Repos\ideas\palschema-hub (the registry itself). See README.md.
@@ -33,10 +33,10 @@
 ## Distribution (session 3, 2026-07-24)
 - ✅ GitHub: repo created + pushed as Booyaka101/pal-schema-collect (public). `npx github:Booyaka101/pal-schema-collect --version` → 0.1.0 on this machine.
 - ✅ Package name: tried **`palsc`** first, but npm 403'd the owner's manual publish — "too similar to existing package yalc". Reverted to **`pal-schema-collect`** (matches repo; single-bin so `npx pal-schema-collect` runs `palsc`; `npm i -g` gives the `palsc` command). Added `files` whitelist (bin, src, README, LICENSE), repository/bugs/homepage fields, LICENSE file, .gitignore. `npm pack` → 9 files; tarball runs.
-- ❌ `npm publish` — Claude's attempt blocked by the permission-mode classifier; owner's manual attempt hit the yalc-similarity 403 (fixed by the rename above). Owner: run `npm publish` again in this folder.
-- ❌ Issue #53 comment — blocked by the same classifier. Finalized body in **DISTRIBUTION-comment.md** (short follow-up — Booyaka101 already posted the hub announcement in that thread 2026-07-20, so the old full draft would have been redundant). Owner: `gh issue comment 53 --repo Okaetsu/PalSchema --body-file DISTRIBUTION-comment.md`.
+- ✅ `npm publish` — done by owner after the yalc rename: `pal-schema-collect@0.1.0` live. Verified from a neutral dir: `npx -y pal-schema-collect@0.1.0 --version` → 0.1.0 and a clean `validate` run. **Gotcha:** `npx <pkg>` FAILS when run from inside this package's own checkout (npm exec matches the CWD package.json, skips the sandbox install, then can't find a `.bin` shim) — always verify from a neutral directory.
+- ✅ Issue #53 comment — posted (short follow-up; Booyaka101 already posted the hub announcement in that thread 2026-07-20): https://github.com/Okaetsu/PalSchema/issues/53#issuecomment-5061200106 — then edited via `gh issue comment --edit-last` to lead with `npx pal-schema-collect` once npm was live. Body mirrored in **DISTRIBUTION-comment.md**.
 
 ## Not done / next steps
-1. **Owner (2 commands):** `npm publish`, then post DISTRIBUTION-comment.md in issue #53 — exact steps in **DISTRIBUTION.md**.
-2. When a modder submits real generator raw output, the first real conversion will exercise convert.mjs against authentic generator files — fixtures replicate the shapes in JsonSchemaGenerator.cpp, but authentic output hasn't been obtainable autonomously (GUI-only, see LESSONS.md 2026-07-19).
-3. ~~Update index.json in the same PR~~ — DONE (session 2, src/indexes.mjs).
+1. Watch for community submissions: the first real Schema Generator raw output will exercise convert.mjs against authentic generator files — fixtures replicate the shapes in JsonSchemaGenerator.cpp, but authentic output hasn't been obtainable autonomously (GUI-only, see LESSONS.md 2026-07-19). Registry-side CI gate will catch conversion bugs before merge.
+2. ~~Update index.json in the same PR~~ — DONE (session 2, src/indexes.mjs).
+3. ~~Distribution~~ — DONE (session 3): GitHub + npm + issue #53, details in DISTRIBUTION.md.
