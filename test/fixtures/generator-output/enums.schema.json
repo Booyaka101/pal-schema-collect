@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "EPalGenderType": {
+      "type": "string",
+      "enum": ["EPalGenderType::None", "EPalGenderType::Male", "EPalGenderType::Female"]
+    }
+  }
+}

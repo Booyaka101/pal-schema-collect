@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "Gender": {
+        "$ref": "../enums.schema.json#/definitions/EPalGenderType"
+      },
+      "IconPath": {
+        "$ref": "../utility.schema.json#/definitions/ObjectPathRegex"
+      },
+      "UnknownEnum": {
+        "$ref": "../enums.schema.json#/definitions/ENotInEnumsFile"
+      },
+      "Price": {
+        "type": "number"
+      },
+      "Tags": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
