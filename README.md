@@ -33,13 +33,15 @@ Token resolution: `--token` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth token
 
 ## Run it
 
-Published on npm as [`palsc`](https://www.npmjs.com/package/palsc):
+Published on npm as [`pal-schema-collect`](https://www.npmjs.com/package/pal-schema-collect) (npm rejected the short name `palsc` as too similar to `yalc`; the single-bin package means `npx pal-schema-collect` runs `palsc` directly):
 
 ```bash
-npx palsc validate --dir <your schemas folder>     # local-only, no network
-npx palsc collect  --dir <your schemas folder>     # dry run against the registry
-npx palsc collect  --dir <your schemas folder> --submit
+npx pal-schema-collect validate --dir <your schemas folder>     # local-only, no network
+npx pal-schema-collect collect  --dir <your schemas folder>     # dry run against the registry
+npx pal-schema-collect collect  --dir <your schemas folder> --submit
 ```
+
+Installed globally (`npm i -g pal-schema-collect`) the command is just `palsc`.
 
 From a checkout:
 
@@ -58,7 +60,7 @@ Requirements: Node ≥ 18 (global `fetch`); `gh` CLI login (or a token) only for
 - Immediate re-run → `Registry already up to date` (pending-PR detection, no duplicate).
 - Two real registry schemas copied locally + `--submit` → `Registry already up to date`, exit 0, nothing touched.
 - Invalid schema (missing `properties`) + `--submit` → exit 1, names the file and rule, **before any GitHub call** (the test suite proves the no-network property by pointing the API base at an unroutable port).
-- `npm pack` + `npx ./palsc-0.1.0.tgz validate --dir test-schemas` → works (relative tarball path — npx on Windows silently no-ops on absolute ones).
+- `npm pack` + `npx ./pal-schema-collect-0.1.0.tgz validate --dir test-schemas` → works (relative tarball path — npx on Windows silently no-ops on absolute ones).
 
 ## Best first distribution step
 

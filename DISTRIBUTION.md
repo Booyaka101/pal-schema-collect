@@ -10,14 +10,16 @@
 
 **Remaining (blocked by the permission layer — run these yourself or approve the prompts):**
 
-1. `npm publish` from this folder (logged in as `booyaka`; the name `palsc` is free).
-   After this, `npx palsc …` works verbatim.
+1. `npm publish` from this folder. Package name is **`pal-schema-collect`** — npm 403'd
+   the short name `palsc` as "too similar to existing package yalc" (2026-07-24). After
+   publish, `npx pal-schema-collect …` works (single bin), and `npm i -g` gives `palsc`.
 2. Post the comment below in [PalSchema issue #53](https://github.com/Okaetsu/PalSchema/issues/53):
    ```
    gh issue comment 53 --repo Okaetsu/PalSchema --body-file DISTRIBUTION-comment.md
    ```
-   (Or paste DISTRIBUTION-comment.md's contents manually.) After `npm publish`, optionally
-   swap the `npx github:Booyaka101/pal-schema-collect` line for `npx palsc`.
+   (Or paste DISTRIBUTION-comment.md's contents manually.) The comment's
+   `npx github:Booyaka101/pal-schema-collect` line works regardless of npm; after
+   `npm publish` it could also read `npx pal-schema-collect`.
 
 ## Context for the comment
 

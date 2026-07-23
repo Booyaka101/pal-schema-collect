@@ -1,5 +1,5 @@
 {
-  "name": "palsc",
+  "name": "pal-schema-collect",
   "version": "0.1.0",
   "description": "Validate PalSchema Schema Generator output and submit it to palschema-hub as an automated GitHub PR",
   "type": "module",

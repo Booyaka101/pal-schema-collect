@@ -32,8 +32,8 @@
 
 ## Distribution (session 3, 2026-07-24)
 - ✅ GitHub: repo created + pushed as Booyaka101/pal-schema-collect (public). `npx github:Booyaka101/pal-schema-collect --version` → 0.1.0 on this machine.
-- ✅ Package renamed `pal-schema-collect` → **`palsc`** (both names confirmed free on npm; unscoped `palsc` makes `npx palsc` work verbatim per session-2 plan). Added `files` whitelist (bin, src, README, LICENSE), repository/bugs/homepage fields, LICENSE file, .gitignore. `npm pack` → 9 files; tarball runs.
-- ❌ `npm publish` — blocked by the permission-mode classifier (npm login as `booyaka` confirmed working). Owner: run `npm publish` in this folder.
+- ✅ Package name: tried **`palsc`** first, but npm 403'd the owner's manual publish — "too similar to existing package yalc". Reverted to **`pal-schema-collect`** (matches repo; single-bin so `npx pal-schema-collect` runs `palsc`; `npm i -g` gives the `palsc` command). Added `files` whitelist (bin, src, README, LICENSE), repository/bugs/homepage fields, LICENSE file, .gitignore. `npm pack` → 9 files; tarball runs.
+- ❌ `npm publish` — Claude's attempt blocked by the permission-mode classifier; owner's manual attempt hit the yalc-similarity 403 (fixed by the rename above). Owner: run `npm publish` again in this folder.
 - ❌ Issue #53 comment — blocked by the same classifier. Finalized body in **DISTRIBUTION-comment.md** (short follow-up — Booyaka101 already posted the hub announcement in that thread 2026-07-20, so the old full draft would have been redundant). Owner: `gh issue comment 53 --repo Okaetsu/PalSchema --body-file DISTRIBUTION-comment.md`.
 
 ## Not done / next steps
