@@ -1,44 +1,28 @@
-# Distribution — ready-to-post draft
+# Distribution — status & remaining owner actions
 
-The single best first step: post in [PalSchema issue #53](https://github.com/Okaetsu/PalSchema/issues/53)
-("Request: documentation of all game variable names"), the exact audience with Schema
-Generator output sitting on disk. Draft below — paste as a comment after publishing this
-repo to GitHub (and optionally npm). Adjust links if the repo lands elsewhere.
+**Done (2026-07-24, session 3):**
 
----
+1. ✅ Published as https://github.com/Booyaka101/pal-schema-collect (public, MIT, initial
+   commit on `main`). `npx github:Booyaka101/pal-schema-collect --version` verified → 0.1.0.
+2. Package renamed to **`palsc`** (unscoped name confirmed free on npm) with `files`
+   whitelist, `repository`/`bugs`/`homepage` fields, and a LICENSE file — `npm pack` +
+   tarball run verified.
 
-Since 0.6.0 the in-game Schema Generator produces exactly what this issue asks for — but
-everyone's output stays on their own disk. Two community tools now close that loop:
+**Remaining (blocked by the permission layer — run these yourself or approve the prompts):**
 
-**Browse every table/field:** https://booyaka101.github.io/palschema-hub/ — a searchable
-registry of JSON Schemas for 31 moddable DataTables (field names from real game data +
-the decompiled SDK headers), plus `palschema-validate` to lint your mod JSON in CI.
+1. `npm publish` from this folder (logged in as `booyaka`; the name `palsc` is free).
+   After this, `npx palsc …` works verbatim.
+2. Post the comment below in [PalSchema issue #53](https://github.com/Okaetsu/PalSchema/issues/53):
+   ```
+   gh issue comment 53 --repo Okaetsu/PalSchema --body-file DISTRIBUTION-comment.md
+   ```
+   (Or paste DISTRIBUTION-comment.md's contents manually.) After `npm publish`, optionally
+   swap the `npx github:Booyaka101/pal-schema-collect` line for `npx palsc`.
 
-**Share your generator output:** if you've run the Schema Generator
-(UE4SS Debugging Tools → Pal Schema → Generate JSON Schema Files), one command turns your
-`DT_*.schema.json` files into a reviewed registry PR:
+## Context for the comment
 
-```
-npx palsc collect --dir <your Mods/PalSchema/schemas/raw folder> --submit
-```
-
-It validates locally first (bad files never leave your machine), converts the generator's
-raw format to registry row format (inlining `enums.schema.json` / `utility.schema.json`
-refs), skips anything already registered, updates the catalog, and opens the PR — a CI
-gate re-validates every schema before merge. Reflection-accurate generator output
-supersedes the derived schemas file-by-file as people submit it.
-
-Repo: https://github.com/Booyaka101/pal-schema-collect (MIT)
-
----
-
-## Prerequisites for the post (owner actions, in order)
-
-1. Publish this folder as `Booyaka101/pal-schema-collect` on GitHub (it is not a git repo
-   yet: `git init`, commit, `gh repo create`).
-2. `npm publish` so `npx palsc` resolves (name `pal-schema-collect`, bin `palsc` — or grab
-   the unscoped name `palsc` if free). Until then, swap the `npx palsc` line for
-   `npx github:Booyaka101/pal-schema-collect`.
-3. Paste the draft into issue #53.
-
-None of these were done autonomously (no-publish constraint).
+Booyaka101 already posted in issue #53 on 2026-07-20 announcing palschema-hub + the
+`palschema-validate` CLI. The comment in `DISTRIBUTION-comment.md` is therefore a short
+follow-up announcing only the new piece (Schema Generator output → registry PR), not a
+repeat of the hub pitch. The issue is still OPEN (checked 2026-07-24); the `npx github:`
+command in it was run successfully on this machine before drafting.
