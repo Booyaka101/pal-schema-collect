@@ -13,6 +13,10 @@ All three channels shipped:
    https://github.com/Okaetsu/PalSchema/issues/53#issuecomment-5061200106
    Body kept in sync in `DISTRIBUTION-comment.md`; edited after npm publish to lead with
    `npx pal-schema-collect`, with `npx github:Booyaka101/pal-schema-collect` as fallback.
+4. **X:** reply in the PalSchema Hub thread as @KillKenny101 (2026-07-24) —
+   https://x.com/KillKenny101/status/2080341626426404917 (parent: the 2026-07-20 hub
+   announcement, status 2079193124719759775). Verified via "Your post was sent." toast
+   + permalink in DOM.
 
 Both install forms verified from a neutral directory on this machine
 (`npx -y pal-schema-collect@0.1.0 --version` → 0.1.0; github: form → 0.1.0).
