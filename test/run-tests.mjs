@@ -162,28 +162,18 @@ console.log('unit: indexes');
     tables: { '1.0': { DT_Existing: { rowStruct: 'X', fields: 1, rows: 0, source: 's' } } },
     generatedAt: '2026-01-01T00:00:00.000Z',
   };
-  const sch0 = {
-    description: 'palschema-hub schema registry index. Paths are relative to the repo/Pages root.',
-    versions: ['1.0'],
-    tables: { '1.0': { DT_Existing: 'schemas/v1.0/DT_Existing.schema.json' } },
-    generatedAt: '2026-01-01T00:00:00.000Z',
-  };
   const NOW = '2026-07-24T00:00:00.000Z';
-  const { rootIndex, schemasIndex } = applySubmission(root0, sch0, '1.0', [
+  const { rootIndex } = applySubmission(root0, '1.0', [
     { table: 'DT_TestBeta', json: alpha },
     { table: 'DT_TestAlpha', json: alpha },
   ], NOW);
   check('root index: tables added sorted, existing kept', jsonDeepEqual(rootIndex.schemas['1.0'], ['DT_Existing', 'DT_TestAlpha', 'DT_TestBeta']));
   check('root index: meta recorded for new tables', rootIndex.tables['1.0'].DT_TestAlpha.fields === 2 && rootIndex.tables['1.0'].DT_Existing.rowStruct === 'X');
   check('root index: generatedAt bumped', rootIndex.generatedAt === NOW && root0.generatedAt === '2026-01-01T00:00:00.000Z');
-  check('schemas index: paths added, existing preserved', jsonDeepEqual(schemasIndex.tables['1.0'], {
-    DT_Existing: 'schemas/v1.0/DT_Existing.schema.json',
-    DT_TestAlpha: 'schemas/v1.0/DT_TestAlpha.schema.json',
-    DT_TestBeta: 'schemas/v1.0/DT_TestBeta.schema.json',
-  }));
+  check('root index: source preserved from existing entry', rootIndex.tables['1.0'].DT_Existing.source === 's');
 
-  const fresh = applySubmission(null, null, '2.0', [{ table: 'DT_New', json: alpha }], NOW);
-  check('missing indexes bootstrapped', fresh.rootIndex.versions.includes('2.0') && fresh.schemasIndex.description.includes('palschema-hub') && fresh.schemasIndex.tables['2.0'].DT_New === 'schemas/v2.0/DT_New.schema.json');
+  const fresh = applySubmission(null, '2.0', [{ table: 'DT_New', json: alpha }], NOW);
+  check('missing index bootstrapped', fresh.rootIndex.versions.includes('2.0') && jsonDeepEqual(fresh.rootIndex.schemas['2.0'], ['DT_New']));
 }
 
 // ---------- mock GitHub API: full submit flow, offline ----------
@@ -197,13 +187,6 @@ console.log('mock api: full submit flow');
     tables: { '1.0': { DT_Existing: { rowStruct: 'X', fields: 1, rows: 0, source: 's' } } },
     generatedAt: '2026-01-01T00:00:00.000Z',
   };
-  const schemasIndex0 = {
-    description: 'palschema-hub schema registry index. Paths are relative to the repo/Pages root.',
-    versions: ['1.0'],
-    tables: { '1.0': { DT_Existing: 'schemas/v1.0/DT_Existing.schema.json' } },
-    generatedAt: '2026-01-01T00:00:00.000Z',
-  };
-
   // Scenario toggled per run:
   //   'new'          — token has push access, registry lists an unrelated file
   //   'unchanged'    — registry lists the fixtures with their exact blob SHAs
@@ -275,9 +258,6 @@ console.log('mock api: full submit flow');
         case '/repos/t/hub/contents/index.json':
         case '/repos/contrib/hub/contents/index.json':
           return send(200, { content: b64(rootIndex0), sha: 'r0' });
-        case '/repos/t/hub/contents/schemas/index.json':
-        case '/repos/contrib/hub/contents/schemas/index.json':
-          return send(200, { content: b64(schemasIndex0), sha: 's0' });
         default:
           return send(404, { message: `mock: no route for ${req.method} ${pathname}` });
       }
@@ -290,11 +270,11 @@ console.log('mock api: full submit flow');
   let r = await run([palsc, 'collect', '--dir', fx('valid'), '--repo', 't/hub', '--submit'], env);
   check('mock submit: exit 0 + PR URL printed', r.code === 0 && r.stdout.includes('PR created: https://example.test/pr/77'), r.all);
   const putPaths = puts.map((p) => p.path).sort();
-  check('mock submit: schemas + both catalogs pushed', jsonDeepEqual(putPaths, ['index.json', 'schemas/index.json', 'schemas/v1.0/DT_TestAlpha.schema.json', 'schemas/v1.0/DT_TestBeta.schema.json']), JSON.stringify(putPaths));
+  check('mock submit: schemas + index.json pushed (no schemas/index.json)', jsonDeepEqual(putPaths, ['index.json', 'schemas/v1.0/DT_TestAlpha.schema.json', 'schemas/v1.0/DT_TestBeta.schema.json']), JSON.stringify(putPaths));
   check('mock submit: schema PUTs target the new branch', puts.every((p) => p.body.branch.startsWith('schema-submission-')), JSON.stringify(puts.map((p) => p.body.branch)));
   const rootPut = JSON.parse(Buffer.from(puts.find((p) => p.path === 'index.json').body.content, 'base64').toString('utf8'));
   check('mock submit: root index gains both tables', jsonDeepEqual(rootPut.schemas['1.0'], ['DT_Existing', 'DT_TestAlpha', 'DT_TestBeta']) && rootPut.tables['1.0'].DT_TestAlpha.fields === 2, JSON.stringify(rootPut.schemas));
-  check('mock submit: index PUTs carry existing sha', puts.find((p) => p.path === 'index.json').body.sha === 'r0' && puts.find((p) => p.path === 'schemas/index.json').body.sha === 's0');
+  check('mock submit: index.json PUT carries existing sha', puts.find((p) => p.path === 'index.json').body.sha === 'r0');
   const branchPost = posts.find((p) => p.path === '/repos/t/hub/git/refs');
   check('mock submit: branch created from main sha', branchPost.body.ref.startsWith('refs/heads/schema-submission-') && branchPost.body.sha === 'a'.repeat(40), JSON.stringify(branchPost));
   const prPost = posts.find((p) => p.path === '/repos/t/hub/pulls');
@@ -321,7 +301,7 @@ console.log('mock api: full submit flow');
   const forkBranchPost = posts.find((p) => p.path === '/repos/contrib/hub/git/refs');
   check('mock fork: branch created on the fork from its sha', forkBranchPost?.body.ref.startsWith('refs/heads/schema-submission-') && forkBranchPost.body.sha === 'b'.repeat(40), JSON.stringify(forkBranchPost));
   check('mock fork: no branch created on upstream', !posts.some((p) => p.path === '/repos/t/hub/git/refs'), JSON.stringify(posts.map((p) => p.path)));
-  check('mock fork: all content pushed to the fork', puts.length === 4 && puts.every((p) => p.repo === 'contrib/hub'), JSON.stringify(puts.map((p) => `${p.repo}/${p.path}`)));
+  check('mock fork: all content pushed to the fork', puts.length === 3 && puts.every((p) => p.repo === 'contrib/hub'), JSON.stringify(puts.map((p) => `${p.repo}/${p.path}`)));
   const forkPrPost = posts.find((p) => p.path === '/repos/t/hub/pulls');
   check('mock fork: PR opened on upstream with owner:branch head', forkPrPost?.body.head.startsWith('contrib:schema-submission-') && forkPrPost.body.base === 'main', JSON.stringify(forkPrPost?.body.head));
 

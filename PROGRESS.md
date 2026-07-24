@@ -1,7 +1,13 @@
 # PROGRESS — pal-schema-collect
 
-**Last updated:** 2026-07-24 (session 4: fork-based submission for contributors without push access — v0.2.0)
+**Last updated:** 2026-07-24 (session 5: catalog drift fix — sync only index.json, drop obsolete schemas/index.json)
 **Status:** COMPLETE + FULLY DISTRIBUTED. Built, tested offline (61/61), verified end-to-end against the LIVE palschema-hub registry twice (PR #2, PR #3). Live at https://github.com/Booyaka101/pal-schema-collect, on npm as `pal-schema-collect`, and announced in PalSchema issue #53 (comment 5061200106). Registry-side CI gate merged into palschema-hub. Submission PRs self-contained (carry catalog updates).
+
+## Session 5 — catalog format drift fix (2026-07-24)
+The hub moved on since session 2: it's now at `schemas/v1.5.2/`, its `build-index.mjs` writes ONLY `/index.json` (shape `{versions, schemas, tables, generatedAt}`), and there is NO `schemas/index.json` anymore. The CLI had been writing an obsolete `schemas/index.json` into every PR (junk file) — now removed.
+- **What the CLI now does:** updates `/index.json` only (its shape already matched the current hub — root cause was just the extra file). `src/indexes.mjs` `applySubmission()` signature dropped the schemasIndex arg; returns `{rootIndex}`.
+- **`_manifest.json` deliberately untouched:** `schemas/v<ver>/_manifest.json` is written solely by `derive-schemas.mjs` (paldex derivation), read by NOTHING (browser, validator CLI, and CI all ignore it — confirmed by grep), and its single file-level `source: derived-from-paldex` cannot honestly hold a Schema Generator-sourced table (per-table source in index.json IS accurate — convert.mjs stamps `source=palschema-schema-generator`). Updating it would assert false provenance for zero functional gain.
+- Verified: 61/61 tests pass; mock-submit now PUTs exactly `[index.json, schemas/v1.0/DT_TestAlpha.schema.json, schemas/v1.0/DT_TestBeta.schema.json]`.
 
 ## What this is
 `palsc` — CLI that validates PalSchema Schema Generator output (`DT_*.schema.json`) and submits it to Booyaka101/palschema-hub as an automated GitHub PR. Companion to D:\Repos\ideas\palschema-hub (the registry itself). See README.md.
@@ -14,7 +20,7 @@
 
 ## VERIFIED WORKING (all against real data)
 - `npm test` → **50/50 pass** (validation of both formats, raw→registry conversion with $ref inlining, git blob SHA, CLI exit codes with API pointed at a dead port to PROVE invalid input never reaches the network, hub CI validator, catalog-index updater units, and a full offline submit-flow test against an in-process mock GitHub API — async spawn, not spawnSync, per LESSONS 2026-07-21).
-- **Catalog sync (session 2):** `--submit` PRs now also update `index.json` + `schemas/index.json` (src/indexes.mjs replicates the hub's build-index.mjs derivation: $comment `k=v|k=v` meta, properties count, default .sort()). Live-verified in PR #3: branch index.json grew to 33 tables with correct meta; CI passed; PR closed + branch deleted after verification.
+- **Catalog sync:** `--submit` PRs also update `index.json` (src/indexes.mjs replicates the hub's build-index.mjs derivation: $comment `k=v|k=v` meta, properties count, default .sort()). Live-verified in PR #3: branch index.json grew to 33 tables with correct meta; CI passed; PR closed + branch deleted after verification. (Session 2 also wrote `schemas/index.json`; removed in session 5 — see above — because the current hub has no such file.)
 - **npx installability:** `npm pack` then `npx ./pal-schema-collect-0.1.0.tgz` (relative path — Windows npx no-ops on absolute tarball paths, LESSONS 2026-07-20) runs `--version` and `validate` correctly.
 - All **31 live registry schemas pass** `hub/scripts/validate-schemas.js` (checked before installing the gate).
 - **CI gate installed:** palschema-hub PR #1 (validate-schema-pr.yml + scripts/validate-schemas.js) opened by `scripts/push-hub-ci.mjs`, squash-merged to main.

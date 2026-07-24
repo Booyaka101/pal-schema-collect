@@ -252,8 +252,11 @@ export async function collect(opts) {
     console.log(`  pushed ${registryPath}/${e.filename}`);
   }
 
-  // Keep the hub's catalog files in sync inside the same PR, so it is mergeable
-  // without the owner re-running build-index. Versioned layout only.
+  // Keep the hub's catalog (/index.json) in sync inside the same PR, so it is
+  // mergeable without the owner re-running build-index. index.json is the only
+  // catalog the browser + palschema-validate consume; schemas/v<ver>/_manifest.json
+  // is a paldex-derivation provenance snapshot nothing reads, so it is left alone.
+  // Versioned layout only.
   const verMatch = /^schemas\/v(\d+(?:\.\d+)*)$/.exec(registryPath);
   let indexesUpdated = false;
   if (verMatch) {
@@ -268,20 +271,14 @@ export async function collect(opts) {
       }
     };
     const rootObj = await api.get(writePath(`/contents/index.json?ref=${encodeURIComponent(branch)}`), { allow404: true });
-    const schemasObj = await api.get(writePath(`/contents/schemas/index.json?ref=${encodeURIComponent(branch)}`), { allow404: true });
-    const updated = applySubmission(parse(rootObj), parse(schemasObj), version, submissions, new Date().toISOString());
-    for (const [repoFile, obj, json] of [
-      ['index.json', rootObj, updated.rootIndex],
-      ['schemas/index.json', schemasObj, updated.schemasIndex],
-    ]) {
-      await api.req('PUT', writePath(`/contents/${repoFile}`), {
-        message: `chore: update ${repoFile} for schema submission (palsc)`,
-        content: Buffer.from(JSON.stringify(json, null, 2) + '\n', 'utf8').toString('base64'),
-        branch,
-        ...(obj?.sha ? { sha: obj.sha } : {}),
-      });
-      console.log(`  pushed ${repoFile} (catalog update)`);
-    }
+    const updated = applySubmission(parse(rootObj), version, submissions, new Date().toISOString());
+    await api.req('PUT', writePath('/contents/index.json'), {
+      message: 'chore: update index.json for schema submission (palsc)',
+      content: Buffer.from(JSON.stringify(updated.rootIndex, null, 2) + '\n', 'utf8').toString('base64'),
+      branch,
+      ...(rootObj?.sha ? { sha: rootObj.sha } : {}),
+    });
+    console.log('  pushed index.json (catalog update)');
     indexesUpdated = true;
   }
 
@@ -302,7 +299,7 @@ export async function collect(opts) {
       `Files (${toSubmit.length}):`,
       ...lines,
       ...(indexesUpdated
-        ? ['', 'Also updates `index.json` and `schemas/index.json` so the catalog stays in sync.']
+        ? ['', 'Also updates `index.json` so the catalog stays in sync.']
         : []),
     ].join('\n'),
   });
