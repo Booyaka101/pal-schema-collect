@@ -1,6 +1,14 @@
 # PROGRESS — pal-schema-collect
 
-**Last updated:** 2026-07-24 (session 5: catalog drift fix — sync only index.json, drop obsolete schemas/index.json)
+**Last updated:** 2026-07-24 (session 5: catalog drift fix + scheduled items.json refresh workflow)
+
+## Session 5b — items.json (item-DATA catalog) refresh
+The hub also serves `items.html` + `items.json` — per-item VALUES for `DT_ItemDataTable` (947 items), generated hub-side by `scripts/build-items.mjs`, which fetches the external **paldex** DataTable dump. This is item DATA, NOT schema — `palsc` cannot produce it (its inputs are Schema Generator schema files: field names/types, no row values). The hub's `pages.yml` only copies the COMMITTED `items.json`, so it goes stale until the script is re-run by hand.
+- **Fix:** added `hub/.github/workflows/refresh-items.yml` — weekly cron (Mon 06:00 UTC) + `workflow_dispatch`, runs `build-items.mjs`, opens a PR ONLY when the item data changed (ignores the `generatedAt`-only diff). Installed to the hub via `scripts/push-hub-items-refresh.mjs` → **palschema-hub PR #4** (open, awaiting owner merge).
+- **One-time repo setting the owner must enable:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests" (else the PR step's GITHUB_TOKEN can't open PRs).
+- Can't test-run from the PR branch (GitHub only runs schedule/workflow_dispatch from the default branch); owner merges, then manually dispatches once to verify.
+- Local hub folder D:\Repos\ideas\palschema-hub is STALE (not a git repo; missing items.*, nexus/, build-items.mjs). The live repo Booyaka101/palschema-hub is the source of truth — work against it via gh, not the local copy.
+
 **Status:** COMPLETE + FULLY DISTRIBUTED. Built, tested offline (61/61), verified end-to-end against the LIVE palschema-hub registry twice (PR #2, PR #3). Live at https://github.com/Booyaka101/pal-schema-collect, on npm as `pal-schema-collect`, and announced in PalSchema issue #53 (comment 5061200106). Registry-side CI gate merged into palschema-hub. Submission PRs self-contained (carry catalog updates).
 
 ## Session 5 — catalog format drift fix (2026-07-24)

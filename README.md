@@ -31,6 +31,13 @@ Token resolution: `--token` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth token
 
 `scripts/push-hub-ci.mjs` re-opens that CI PR against any fork (`node scripts/push-hub-ci.mjs owner/repo`).
 
+### Keeping `items.json` fresh (hub-side, not the CLI)
+
+The hub also publishes `items.json` — per-item **values** for `DT_ItemDataTable` (shown by `items.html`). This is item *data*, not schema, and comes from an external upstream (the paldex DataTable dump) via the hub's `scripts/build-items.mjs`. `palsc` cannot produce it: the CLI's inputs are Schema Generator *schema* files (field names/types), which carry no row values. So it is refreshed on a schedule instead:
+
+- `hub/.github/workflows/refresh-items.yml` — weekly (+ manual `workflow_dispatch`) runs `build-items.mjs` and opens a PR **only when the item data actually changed** (the `generatedAt` timestamp alone doesn't count). Merging redeploys via the hub's `pages.yml`.
+- `scripts/push-hub-items-refresh.mjs` installs that workflow into the hub (`node scripts/push-hub-items-refresh.mjs owner/repo`; merged as [PR #4](https://github.com/Booyaka101/palschema-hub/pull/4)). One-time repo setting: enable *Settings → Actions → General → Allow GitHub Actions to create and approve pull requests*.
+
 ## Run it
 
 Published on npm as [`pal-schema-collect`](https://www.npmjs.com/package/pal-schema-collect) (npm rejected the short name `palsc` as too similar to `yalc`; the single-bin package means `npx pal-schema-collect` runs `palsc` directly):
