@@ -20,7 +20,9 @@ Options:
   --dir <path>          Directory containing DT_*.schema.json files (e.g. the
                         Schema Generator's Mods/PalSchema/schemas/raw folder).
   --submit              Actually open the PR. Without it, palsc stops after
-                        printing the diff (dry run).
+                        printing the diff (dry run). Uses your GitHub account;
+                        without push access to the registry, the branch is
+                        pushed to an automatic fork and the PR opened from it.
   --repo <owner/repo>   Target registry repo (default: Booyaka101/palschema-hub).
   --token <token>       GitHub token. Falls back to GH_TOKEN, GITHUB_TOKEN, then
                         \`gh auth token\`.

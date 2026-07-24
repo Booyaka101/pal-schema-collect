@@ -178,13 +178,15 @@ export async function collect(opts) {
     return 1;
   }
 
-  // If an identical submission is already pending in an open PR, don't open a duplicate.
+  // If an identical submission is already pending in an open PR, don't open a
+  // duplicate. Head repo may be the registry itself or a contributor's fork.
   const openPrs = await api.get(api.repoPath(`/pulls?state=open&base=${defaultBranch}&per_page=100`));
   for (const pr of openPrs) {
     if (!pr.head?.ref?.startsWith(BRANCH_PREFIX)) continue;
-    if (pr.head.repo?.full_name !== opts.repo) continue;
+    const headRepo = pr.head.repo?.full_name; // null if the fork was deleted
+    if (!headRepo) continue;
     const branchListing = await api.get(
-      api.repoPath(`/contents/${registryPath}?ref=${encodeURIComponent(pr.head.ref)}`),
+      `/repos/${headRepo}/contents/${registryPath}?ref=${encodeURIComponent(pr.head.ref)}`,
       { allow404: true }
     );
     if (!Array.isArray(branchListing)) continue;
@@ -196,15 +198,52 @@ export async function collect(opts) {
     }
   }
 
-  const baseRef = await api.get(api.repoPath(`/git/ref/heads/${encodeURIComponent(defaultBranch)}`));
+  // Without push access to the registry (the usual case for community
+  // submissions), branch on an automatic fork instead and open a cross-repo PR.
+  let writeRepo = opts.repo;
+  let headOwner = null;
+  if (!repoInfo.permissions?.push) {
+    const user = await api.get('/user');
+    console.log(`No push access to ${opts.repo} as @${user.login} — submitting via a fork`);
+    const fork = await api.req('POST', api.repoPath('/forks'));
+    writeRepo = fork.full_name;
+    headOwner = fork.owner.login;
+    // Forking is asynchronous; a brand-new fork 404s until GitHub finishes it.
+    let forkRef = null;
+    for (let i = 0; i < 20 && !forkRef; i++) {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, 1500));
+      forkRef = await api
+        .get(`/repos/${writeRepo}/git/ref/heads/${encodeURIComponent(defaultBranch)}`, { allow404: true })
+        .catch(() => null);
+    }
+    if (!forkRef) {
+      console.error(`error: fork ${writeRepo} is not ready yet — re-run in a minute`);
+      return 1;
+    }
+    // Sync the fork so the branch (and the diff we computed against upstream)
+    // is based on the registry's current default branch.
+    try {
+      await api.req('POST', `/repos/${writeRepo}/merge-upstream`, { branch: defaultBranch });
+    } catch (e) {
+      console.error(
+        `error: could not sync ${writeRepo} with ${opts.repo}: ${e.message}\n` +
+          `Sync (or delete) the fork on GitHub, then re-run.`
+      );
+      return 1;
+    }
+    console.log(`Fork ready: ${writeRepo} (synced with ${opts.repo})`);
+  }
+  const writePath = (sub) => `/repos/${writeRepo}${sub}`;
+
+  const baseRef = await api.get(writePath(`/git/ref/heads/${encodeURIComponent(defaultBranch)}`));
   const ts = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
   const branch = `${BRANCH_PREFIX}${ts}-${randomBytes(2).toString('hex')}`;
-  await api.req('POST', api.repoPath('/git/refs'), { ref: `refs/heads/${branch}`, sha: baseRef.object.sha });
-  console.log(`Created branch ${branch}`);
+  await api.req('POST', writePath('/git/refs'), { ref: `refs/heads/${branch}`, sha: baseRef.object.sha });
+  console.log(`Created branch ${branch}${headOwner ? ` on ${writeRepo}` : ''}`);
 
   for (const e of toSubmit) {
     const isNew = !e.existingSha;
-    await api.req('PUT', api.repoPath(`/contents/${registryPath}/${encodeURIComponent(e.filename)}`), {
+    await api.req('PUT', writePath(`/contents/${registryPath}/${encodeURIComponent(e.filename)}`), {
       message: `chore: ${isNew ? 'add' : 'update'} ${registryPath}/${e.filename} (palsc submission)`,
       content: e.buf.toString('base64'),
       branch,
@@ -228,14 +267,14 @@ export async function collect(opts) {
         return null;
       }
     };
-    const rootObj = await api.get(api.repoPath(`/contents/index.json?ref=${encodeURIComponent(branch)}`), { allow404: true });
-    const schemasObj = await api.get(api.repoPath(`/contents/schemas/index.json?ref=${encodeURIComponent(branch)}`), { allow404: true });
+    const rootObj = await api.get(writePath(`/contents/index.json?ref=${encodeURIComponent(branch)}`), { allow404: true });
+    const schemasObj = await api.get(writePath(`/contents/schemas/index.json?ref=${encodeURIComponent(branch)}`), { allow404: true });
     const updated = applySubmission(parse(rootObj), parse(schemasObj), version, submissions, new Date().toISOString());
     for (const [repoFile, obj, json] of [
       ['index.json', rootObj, updated.rootIndex],
       ['schemas/index.json', schemasObj, updated.schemasIndex],
     ]) {
-      await api.req('PUT', api.repoPath(`/contents/${repoFile}`), {
+      await api.req('PUT', writePath(`/contents/${repoFile}`), {
         message: `chore: update ${repoFile} for schema submission (palsc)`,
         content: Buffer.from(JSON.stringify(json, null, 2) + '\n', 'utf8').toString('base64'),
         branch,
@@ -252,7 +291,7 @@ export async function collect(opts) {
   ];
   const pr = await api.req('POST', api.repoPath('/pulls'), {
     title: `chore: add/update ${toSubmit.length} schemas from Schema Generator`,
-    head: branch,
+    head: headOwner ? `${headOwner}:${branch}` : branch,
     base: defaultBranch,
     body: [
       'Automated schema submission via `palsc` (pal-schema-collect).',

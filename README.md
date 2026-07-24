@@ -17,10 +17,10 @@ palsc validate --dir <path>          # local-only validation, no network
    Any invalid file → **exit 1 with a specific error, before any network call**.
 2. **Diff against the registry** via the GitHub contents API. The registry folder is auto-detected (latest `schemas/v*`, falling back to `schemas/`). Files are compared by git blob SHA, with a JSON deep-equal fallback so formatting-only differences don't count as changes. Result: `added` / `changed` / `unchanged`.
 3. Nothing new → prints **`Registry already up to date`**, exit 0. Same if an identical submission is already pending in an open PR (no duplicate PRs).
-4. Without `--submit` it stops after printing the diff (dry run). With `--submit` it creates a `schema-submission-<timestamp>` branch, commits each file via the contents API, and opens a PR titled `chore: add/update N schemas from Schema Generator`, printing the PR URL.
+4. Without `--submit` it stops after printing the diff (dry run). With `--submit` it creates a `schema-submission-<timestamp>` branch, commits each file via the contents API, and opens a PR titled `chore: add/update N schemas from Schema Generator`, printing the PR URL. If your token has push access to the registry the branch is created there directly; otherwise (the normal case for community submissions) `palsc` forks the registry to your account — reusing and syncing an existing fork — pushes the branch to the fork, and opens the PR from `you:branch`.
 5. The same PR also updates the hub's catalog files (`index.json` + `schemas/index.json` — new tables added, per-table metadata refreshed, `generatedAt` bumped), replicating the hub's `build-index.mjs` rules, so every submission is mergeable without follow-up work by the registry owner.
 
-Token resolution: `--token` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth token`. Read-only use (validate/diff/dry-run) needs no token.
+Token resolution: `--token` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth token`. Read-only use (validate/diff/dry-run) needs no token. No credentials ship with the tool — `--submit` always acts as *your* GitHub account (classic PAT with `repo`/`public_repo` scope, or a `gh` login).
 
 ## The registry-side CI gate
 
@@ -46,7 +46,7 @@ Installed globally (`npm i -g pal-schema-collect`) the command is just `palsc`.
 From a checkout:
 
 ```bash
-npm test                                  # offline suite: 50 checks, no network (dead-port API + in-process mock GitHub API)
+npm test                                  # offline suite: 61 checks, no network (dead-port API + in-process mock GitHub API, incl. the fork flow)
 node bin/palsc.mjs validate --dir test/fixtures/valid
 node bin/palsc.mjs collect  --dir test-schemas            # live dry run against the registry
 node bin/palsc.mjs collect  --dir test-schemas --submit   # opens the PR

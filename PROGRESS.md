@@ -1,7 +1,7 @@
 # PROGRESS — pal-schema-collect
 
-**Last updated:** 2026-07-24 (session 3: SHIPPED — GitHub + npm + issue #53 post)
-**Status:** COMPLETE + FULLY DISTRIBUTED. Built, tested offline (50/50), verified end-to-end against the LIVE palschema-hub registry twice (PR #2, PR #3). Live at https://github.com/Booyaka101/pal-schema-collect, on npm as `pal-schema-collect@0.1.0`, and announced in PalSchema issue #53 (comment 5061200106). Registry-side CI gate merged into palschema-hub. Submission PRs self-contained (carry catalog updates).
+**Last updated:** 2026-07-24 (session 4: fork-based submission for contributors without push access — v0.2.0)
+**Status:** COMPLETE + FULLY DISTRIBUTED. Built, tested offline (61/61), verified end-to-end against the LIVE palschema-hub registry twice (PR #2, PR #3). Live at https://github.com/Booyaka101/pal-schema-collect, on npm as `pal-schema-collect`, and announced in PalSchema issue #53 (comment 5061200106). Registry-side CI gate merged into palschema-hub. Submission PRs self-contained (carry catalog updates).
 
 ## What this is
 `palsc` — CLI that validates PalSchema Schema Generator output (`DT_*.schema.json`) and submits it to Booyaka101/palschema-hub as an automated GitHub PR. Companion to D:\Repos\ideas\palschema-hub (the registry itself). See README.md.
@@ -36,7 +36,31 @@
 - ✅ `npm publish` — done by owner after the yalc rename: `pal-schema-collect@0.1.0` live. Verified from a neutral dir: `npx -y pal-schema-collect@0.1.0 --version` → 0.1.0 and a clean `validate` run. **Gotcha:** `npx <pkg>` FAILS when run from inside this package's own checkout (npm exec matches the CWD package.json, skips the sandbox install, then can't find a `.bin` shim) — always verify from a neutral directory.
 - ✅ Issue #53 comment — posted (short follow-up; Booyaka101 already posted the hub announcement in that thread 2026-07-20): https://github.com/Okaetsu/PalSchema/issues/53#issuecomment-5061200106 — then edited via `gh issue comment --edit-last` to lead with `npx pal-schema-collect` once npm was live. Body mirrored in **DISTRIBUTION-comment.md**.
 
+## Fork flow (session 4, 2026-07-24) — v0.2.0
+Root cause found while answering "do the PRs ship my credentials?": credentials were
+always BYO (`--token` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth token`), **but** the
+submit flow branched directly on the target repo, so anyone without push access got a
+403/404 — community submissions were effectively owner-only. Fixed:
+- `GET /repos/{repo}` `permissions.push` decides direct vs fork (authenticated because
+  the token is resolved before that call; missing permissions → fork path).
+- Fork path: `GET /user` (for the log line), `POST /repos/{repo}/forks` (idempotent —
+  returns an existing fork; use `full_name`/`owner.login` from the response, forks can
+  be renamed), poll `git/ref/heads/<default>` up to 20×1.5s (new forks 404 while GitHub
+  builds them; 409 "empty repo" is caught too), `POST /merge-upstream` to sync (fatal
+  with guidance on conflict — a stale fork would break the upstream-computed diff and
+  the `sha`-carrying content PUTs), then branch + PUTs on the fork, PR on upstream with
+  `head: owner:branch`.
+- Duplicate-PR guard now also matches open PRs whose head lives on a fork (lists branch
+  contents from `pr.head.repo.full_name`; skips PRs whose fork was deleted).
+- Tests: mock API generalized to multi-repo (PUT route regex, empty-body POST fix for
+  `/forks`); scenarios `fork` (11 routes asserted end-to-end: fork created, synced,
+  branch on fork from fork's sha, nothing pushed upstream, PR head `contrib:...`) and
+  `fork-pending` (dedup short-circuits before forking). 61/61.
+- Hub-side needs NO change: `pull_request` CI runs on fork PRs with a read-only token.
+
 ## Not done / next steps
 1. Watch for community submissions: the first real Schema Generator raw output will exercise convert.mjs against authentic generator files — fixtures replicate the shapes in JsonSchemaGenerator.cpp, but authentic output hasn't been obtainable autonomously (GUI-only, see LESSONS.md 2026-07-19). Registry-side CI gate will catch conversion bugs before merge.
-2. ~~Update index.json in the same PR~~ — DONE (session 2, src/indexes.mjs).
-3. ~~Distribution~~ — DONE (session 3): GitHub + npm + issue #53, details in DISTRIBUTION.md.
+2. The fork path is verified against the offline mock only — a true live test needs a second GitHub account. First community `--submit` will be the real acceptance run.
+3. ~~Update index.json in the same PR~~ — DONE (session 2, src/indexes.mjs).
+4. ~~Distribution~~ — DONE (session 3): GitHub + npm + issue #53, details in DISTRIBUTION.md.
+5. ~~Fork-based submission~~ — DONE (session 4, v0.2.0). Needs `npm publish` by owner if not done this session.

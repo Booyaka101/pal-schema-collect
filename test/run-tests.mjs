@@ -204,10 +204,17 @@ console.log('mock api: full submit flow');
     generatedAt: '2026-01-01T00:00:00.000Z',
   };
 
-  // Scenario toggled per run: 'new' lists an unrelated file; 'unchanged' lists
-  // the fixtures with their exact blob SHAs so nothing is submittable.
+  // Scenario toggled per run:
+  //   'new'          — token has push access, registry lists an unrelated file
+  //   'unchanged'    — registry lists the fixtures with their exact blob SHAs
+  //   'fork'         — no push access: fork t/hub as contrib/hub, PR from the fork
+  //   'fork-pending' — no push access + an open fork PR already carries the files
   let scenario = 'new';
   const fixtureSha = (name) => gitBlobSha(Buffer.from(normalizeContent(readFileSync(fx('valid', name), 'utf8')), 'utf8'));
+  const fixtureListing = () => [
+    { name: 'DT_TestAlpha.schema.json', type: 'file', sha: fixtureSha('DT_TestAlpha.schema.json') },
+    { name: 'DT_TestBeta.schema.json', type: 'file', sha: fixtureSha('DT_TestBeta.schema.json') },
+  ];
   const puts = [];
   const posts = [];
   const server = createServer((req, res) => {
@@ -219,37 +226,57 @@ console.log('mock api: full submit flow');
         res.writeHead(code, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(obj));
       };
-      if (req.method === 'PUT' && pathname.startsWith('/repos/t/hub/contents/')) {
-        puts.push({ path: pathname.replace('/repos/t/hub/contents/', ''), body: JSON.parse(body) });
+      const putMatch = req.method === 'PUT' && /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/.exec(pathname);
+      if (putMatch) {
+        puts.push({ repo: putMatch[1], path: putMatch[2], body: JSON.parse(body) });
         return send(201, {});
       }
       if (req.method === 'POST') {
-        posts.push({ path: pathname, body: JSON.parse(body) });
+        posts.push({ path: pathname, body: body ? JSON.parse(body) : null });
         if (pathname === '/repos/t/hub/pulls') return send(201, { html_url: 'https://example.test/pr/77', number: 77 });
+        if (pathname === '/repos/t/hub/forks') return send(202, { full_name: 'contrib/hub', owner: { login: 'contrib' } });
         return send(201, {});
       }
       switch (pathname) {
         case '/repos/t/hub':
-          return send(200, { default_branch: 'main' });
+          return send(200, {
+            default_branch: 'main',
+            permissions: { push: !scenario.startsWith('fork'), pull: true },
+          });
+        case '/user':
+          return send(200, { login: 'contrib' });
         case '/repos/t/hub/contents/schemas':
           return send(200, [{ name: 'v1.0', type: 'dir' }, { name: 'index.json', type: 'file', sha: 'zz' }]);
         case '/repos/t/hub/contents/schemas/v1.0':
           return send(
             200,
-            scenario === 'new'
-              ? [{ name: 'DT_Existing.schema.json', type: 'file', sha: 'ee' }]
-              : [
-                  { name: 'DT_TestAlpha.schema.json', type: 'file', sha: fixtureSha('DT_TestAlpha.schema.json') },
-                  { name: 'DT_TestBeta.schema.json', type: 'file', sha: fixtureSha('DT_TestBeta.schema.json') },
-                ]
+            scenario === 'unchanged'
+              ? fixtureListing()
+              : [{ name: 'DT_Existing.schema.json', type: 'file', sha: 'ee' }]
           );
+        case '/repos/contrib/hub/contents/schemas/v1.0':
+          // Only queried by the pending-PR dedup check (?ref=<branch>).
+          return send(200, fixtureListing());
         case '/repos/t/hub/pulls':
-          return send(200, []);
+          return send(
+            200,
+            scenario === 'fork-pending'
+              ? [{
+                  number: 5,
+                  html_url: 'https://example.test/pr/5',
+                  head: { ref: 'schema-submission-20260101000000-ab', repo: { full_name: 'contrib/hub' } },
+                }]
+              : []
+          );
         case '/repos/t/hub/git/ref/heads/main':
           return send(200, { object: { sha: 'a'.repeat(40) } });
+        case '/repos/contrib/hub/git/ref/heads/main':
+          return send(200, { object: { sha: 'b'.repeat(40) } });
         case '/repos/t/hub/contents/index.json':
+        case '/repos/contrib/hub/contents/index.json':
           return send(200, { content: b64(rootIndex0), sha: 'r0' });
         case '/repos/t/hub/contents/schemas/index.json':
+        case '/repos/contrib/hub/contents/schemas/index.json':
           return send(200, { content: b64(schemasIndex0), sha: 's0' });
         default:
           return send(404, { message: `mock: no route for ${req.method} ${pathname}` });
@@ -272,6 +299,7 @@ console.log('mock api: full submit flow');
   check('mock submit: branch created from main sha', branchPost.body.ref.startsWith('refs/heads/schema-submission-') && branchPost.body.sha === 'a'.repeat(40), JSON.stringify(branchPost));
   const prPost = posts.find((p) => p.path === '/repos/t/hub/pulls');
   check('mock submit: PR title + catalog note in body', prPost.body.title === 'chore: add/update 2 schemas from Schema Generator' && prPost.body.body.includes('Also updates `index.json`'), JSON.stringify(prPost?.body.title));
+  check('mock submit: push access -> no fork, same-repo head', !posts.some((p) => p.path.endsWith('/forks')) && puts.every((p) => p.repo === 't/hub') && !prPost.body.head.includes(':'), JSON.stringify(prPost.body.head));
 
   scenario = 'unchanged';
   puts.length = 0;
@@ -279,6 +307,31 @@ console.log('mock api: full submit flow');
   r = await run([palsc, 'collect', '--dir', fx('valid'), '--repo', 't/hub', '--submit'], env);
   check('mock unchanged: Registry already up to date, exit 0', r.code === 0 && r.stdout.includes('Registry already up to date'), r.all);
   check('mock unchanged: nothing written', puts.length === 0 && posts.length === 0, JSON.stringify({ puts, posts }));
+
+  // No push access: the same submission must go through an automatic fork.
+  scenario = 'fork';
+  puts.length = 0;
+  posts.length = 0;
+  r = await run([palsc, 'collect', '--dir', fx('valid'), '--repo', 't/hub', '--submit'], env);
+  check('mock fork: exit 0 + PR URL printed', r.code === 0 && r.stdout.includes('PR created: https://example.test/pr/77'), r.all);
+  check('mock fork: announces the fork path', r.stdout.includes('No push access to t/hub as @contrib') && r.stdout.includes('Fork ready: contrib/hub'), r.stdout);
+  check('mock fork: fork created on upstream', posts.some((p) => p.path === '/repos/t/hub/forks'), JSON.stringify(posts.map((p) => p.path)));
+  const syncPost = posts.find((p) => p.path === '/repos/contrib/hub/merge-upstream');
+  check('mock fork: fork synced with upstream main', syncPost?.body?.branch === 'main', JSON.stringify(syncPost));
+  const forkBranchPost = posts.find((p) => p.path === '/repos/contrib/hub/git/refs');
+  check('mock fork: branch created on the fork from its sha', forkBranchPost?.body.ref.startsWith('refs/heads/schema-submission-') && forkBranchPost.body.sha === 'b'.repeat(40), JSON.stringify(forkBranchPost));
+  check('mock fork: no branch created on upstream', !posts.some((p) => p.path === '/repos/t/hub/git/refs'), JSON.stringify(posts.map((p) => p.path)));
+  check('mock fork: all content pushed to the fork', puts.length === 4 && puts.every((p) => p.repo === 'contrib/hub'), JSON.stringify(puts.map((p) => `${p.repo}/${p.path}`)));
+  const forkPrPost = posts.find((p) => p.path === '/repos/t/hub/pulls');
+  check('mock fork: PR opened on upstream with owner:branch head', forkPrPost?.body.head.startsWith('contrib:schema-submission-') && forkPrPost.body.base === 'main', JSON.stringify(forkPrPost?.body.head));
+
+  // An open fork PR already carrying these exact files must short-circuit.
+  scenario = 'fork-pending';
+  puts.length = 0;
+  posts.length = 0;
+  r = await run([palsc, 'collect', '--dir', fx('valid'), '--repo', 't/hub', '--submit'], env);
+  check('mock fork-pending: dedups against open fork PR, exit 0', r.code === 0 && r.stdout.includes('already pending in PR #5'), r.all);
+  check('mock fork-pending: nothing written, no fork created', puts.length === 0 && posts.length === 0, JSON.stringify({ puts, posts: posts.map((p) => p.path) }));
   server.close();
 }
 
