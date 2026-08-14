@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: PalSchema
+    url: https://github.com/Okaetsu/PalSchema
+    about: The Schema Generator itself, and what it writes to disk.
+  - name: palschema-hub registry
+    url: https://github.com/Booyaka101/palschema-hub
+    about: The registry these submissions land in. Schema content disputes belong there.
+  - name: Security issue
+    url: https://github.com/Booyaka101/pal-schema-collect/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
