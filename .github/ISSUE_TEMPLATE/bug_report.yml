@@ -1,0 +1,49 @@
+name: Bug report
+description: Something didn't work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please **never paste a GitHub token** — `--token` values have shown up in pasted output before. Check yours first.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, and what came back.
+      placeholder: |
+        $ palsc collect --dir ./schemas --submit
+        Error: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: palsc version
+      description: Output of `palsc --version`
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: Node version and OS
+      description: Output of `node --version`, plus your OS.
+      placeholder: v22.18.0 on Windows 11
+    validations:
+      required: true
+
+  - type: textarea
+    id: table
+    attributes:
+      label: Which `DT_*.schema.json` was involved
+      description: The table name, and the PalSchema and Palworld versions that generated it.
