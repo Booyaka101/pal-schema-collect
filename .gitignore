@@ -1,3 +1,7 @@
 node_modules/
 *.tgz
 .claude/
+
+# Local build notes, not for the public repo
+DISTRIBUTION.md
+PROGRESS.md
